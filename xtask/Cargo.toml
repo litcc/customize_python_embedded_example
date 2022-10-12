@@ -1,0 +1,13 @@
+[package]
+name = "xtask"
+version = "0.1.0"
+edition = "2021"
+build = "build.rs"
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow = "1"
+pyoxidizer = "0.22.0"
+python-packaging = { version = "0.*", features = ["spdx-text"] }
+tugger-file-manifest = "0.9.0"
+pyo3-build-config = "0.*"

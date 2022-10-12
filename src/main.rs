@@ -1,6 +1,6 @@
 use anyhow::{Result, Context, anyhow};
 use pyembed::{MainPythonInterpreter, OxidizedPythonInterpreterConfig};
-use pyembed::PythonInterpreterProfile::Python;
+
 
 include!("../target/pyembedded/default_python_config.rs");
 

@@ -10,27 +10,35 @@ use python_packaging::filesystem_scanning::find_python_resources;
 use python_packaging::interpreter::{MemoryAllocatorBackend, PythonInterpreterProfile};
 use python_packaging::resource::PythonResource;
 use std::collections::HashMap;
+use std::fs;
 use std::fs::{remove_dir_all, remove_file};
 use std::hash::BuildHasher;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use pyoxidizerlib::py_packaging::binary::LibpythonLinkMode;
-use tugger_file_manifest::FileManifest;
-
+use tugger_file_manifest::{FileManifest, File};
+use crate::root;
 
 
 /// Used to generate custom embedded parser resources
 #[allow(dead_code)]
 pub fn build_customize() -> Result<()> {
-    let target = std::env::var("TARGET").context("get env: TARGET")?;
-    let package_path =
-        PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").context("get env: CARGO_MANIFEST_DIR")?);
-    let python_vm_dest_path = package_path.join("target").join("pyembedded");
+    // std::env::vars().for_each(|m|{
+    //    println!("{}: {}",m.0,m.1);
+    // });
+    let package_path = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").context("get env: CARGO_MANIFEST_DIR")?);
+    let root_package_path = root()?;
+    let target = {
+        fs::read_to_string(&package_path.join(".target.env")).context("read target env")?
+    };
+
+    let python_vm_dest_path = root_package_path.join("target").join("pyembedded");
     // let python_vm_dest_path_str = python_vm_dest_path.to_string_lossy().to_string();
     let pyo3_config_file = python_vm_dest_path.join("pyo3-build-config-file.txt");
     let pyo3_config_file_str = pyo3_config_file.to_string_lossy().to_string();
     let target_file = python_vm_dest_path.join("target");
-    if target_file.exists() {
+    remove_dir_all(&python_vm_dest_path).unwrap();
+    /*if target_file.exists() {
         println!("cargo:warning=MESSAGE: target_file exists");
         let target_body = std::fs::read_to_string(target_file);
         if let Ok(target_tag) = target_body {
@@ -38,7 +46,7 @@ pub fn build_customize() -> Result<()> {
                 remove_dir_all(&python_vm_dest_path).unwrap();
             }
         }
-    }
+    }*/
 
     if !(pyo3_config_file.exists() && pyo3_config_file.is_file()) {
         println!("cargo:warning=MESSAGE: The environment is missing! The embedded Python environment is being generated...");
@@ -49,7 +57,7 @@ pub fn build_customize() -> Result<()> {
 
         let flavor = DistributionFlavor::Standalone.to_string();
         let build_task = generate_python_embedding_artifacts(
-            &package_path,
+            &root_package_path,
             &env,
             &target,
             &flavor,
@@ -129,15 +137,14 @@ pub fn generate_python_embedding_artifacts(
     interpreter_config.allocator_backend = MemoryAllocatorBackend::Default;
 
 
-
-    pip_install_customize(
-        &env,
-        host_dist.clone_trait().as_ref(),
-        None,
-        true,
-        &["netaddr".to_owned()],
-        &HashMap::new(),
-    ).context("pip install netaddr")?;
+    // pip_install_customize(
+    //     &env,
+    //     host_dist.clone_trait().as_ref(),
+    //     None,
+    //     true,
+    //     &["netaddr".to_owned()],
+    //     &HashMap::new(),
+    // ).context("pip install netaddr")?;
 
     let mut builder = host_dist.as_python_executable_builder(
         default_target_triple(),
@@ -153,14 +160,12 @@ pub fn generate_python_embedding_artifacts(
 
     // try to use
     // cannot be packaged into binary
-    // builder.pip_install(
-    //     &env,
-    //     true,
-    //     &["netaddr".to_owned()],
-    //     &HashMap::new(),
-    // ).context("pip install netaddr")?;
-
-
+    builder.pip_install(
+        &env,
+        true,
+        &["netaddr".to_owned()],
+        &HashMap::new(),
+    ).context("pip install netaddr")?;
 
 
     builder
@@ -213,7 +218,6 @@ pub fn generate_python_embedding_artifacts(
 
     Ok(())
 }
-
 
 
 ///
