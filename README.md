@@ -5,7 +5,7 @@ functionality and integrate it into rust code, something like the following exam
 Later I may package this project as a lib and load it into other rust projects
 
 
-## Generic embedded python parser (Current Status)
+## Generic embedded python parser (Expired)
 
 > 
 
@@ -27,7 +27,7 @@ Summary of the problems encountered.
 2. unable to add third-party libraries to python, can only call standard library modules
 
 
-## The state that I expect or that I try to achieve
+## The state that I expect or that I try to achieve (Expired)
 
 
 From the command line `pyoxidizer generate-python-embedding-artifacts`, we know that the embedding is created by the `generate_python_embedding_artifacts` function in the `projectmgmt.rs` file in the `pyoxidizer` package.
@@ -103,3 +103,18 @@ PYO3_CONFIG_FILE=$(pwd)/target/pyembedded/pyo3-build-config-file.txt cargo run
 ```
 
 I still feel very complicated, is there a good way to get everything I want by just running cargo run
+
+
+## Use the project structure named cargo-xtask for packaging (Current Status)
+
+> https://github.com/matklad/cargo-xtask
+
+
+
+To summarize, the modified example packaging process:
+
+1. Run the compile command
+
+```shell
+cargo xrun
+```
