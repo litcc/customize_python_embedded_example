@@ -1,11 +1,11 @@
 [env]
 #PYO3_CONFIG_FILE = { value = "target/pyembedded/pyo3-build-config-file.txt", relative = true, force = true }
 
-[alias]
-xtask = "run --manifest-path ./xtask/Cargo.toml --"
-xrun = "run --manifest-path ./xtask/Cargo.toml -- run"
-xbuild = "run --manifest-path ./xtask/Cargo.toml -- build"
+#[alias]
+#xtask = "run --manifest-path ./xtask/Cargo.toml --"
+#xrun = "run --manifest-path ./xtask/Cargo.toml -- run"
+#xbuild = "run --manifest-path ./xtask/Cargo.toml -- build"
 
 
 [build]
-incremental = true
+incremental = false

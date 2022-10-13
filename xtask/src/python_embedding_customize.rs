@@ -2,9 +2,7 @@ use std::collections::hash_map::RandomState;
 use anyhow::Result;
 use anyhow::{anyhow, Context};
 use pyoxidizerlib::environment::{canonicalize_path, default_target_triple, Environment};
-use pyoxidizerlib::py_packaging::distribution::{
-    BinaryLibpythonLinkMode, DistributionCache, DistributionFlavor, PythonDistribution,
-};
+use pyoxidizerlib::py_packaging::distribution::{BinaryLibpythonLinkMode, DistributionCache, DistributionFlavor, PythonDistribution, PythonDistributionLocation};
 use pyoxidizerlib::python_distributions::PYTHON_DISTRIBUTIONS;
 use python_packaging::filesystem_scanning::find_python_resources;
 use python_packaging::interpreter::{MemoryAllocatorBackend, PythonInterpreterProfile};
@@ -16,6 +14,7 @@ use std::hash::BuildHasher;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use pyoxidizerlib::py_packaging::binary::LibpythonLinkMode;
+use pyoxidizerlib::py_packaging::standalone_distribution::StandaloneDistribution;
 use tugger_file_manifest::{FileManifest, File};
 use crate::root;
 
@@ -37,7 +36,10 @@ pub fn build_customize() -> Result<()> {
     let pyo3_config_file = python_vm_dest_path.join("pyo3-build-config-file.txt");
     let pyo3_config_file_str = pyo3_config_file.to_string_lossy().to_string();
     let target_file = python_vm_dest_path.join("target");
-    remove_dir_all(&python_vm_dest_path).unwrap();
+
+    if python_vm_dest_path.exists() {
+        remove_dir_all(&python_vm_dest_path).unwrap();
+    }
     /*if target_file.exists() {
         println!("cargo:warning=MESSAGE: target_file exists");
         let target_body = std::fs::read_to_string(target_file);
@@ -109,20 +111,28 @@ pub fn generate_python_embedding_artifacts(
 
     let distribution_cache = DistributionCache::new(Some(&env.python_distributions_dir()));
 
-    //Some(&dest_path.join("tmp"))
+
     let dist = distribution_cache
-        .resolve_distribution(&distribution_record.location, None)
+        .resolve_distribution(
+            &distribution_record.location,
+            Some(&package_path.join("target").join("python_tmp")),
+        )
         .context("resolving Python distribution")
         .context("resolve_distribution")?;
 
-    // let python_tmp_path = &package_path.join("target").join("python_tmp");
 
-    let host_dist = distribution_cache
-        .host_distribution(
-            Some(dist.python_major_minor_version().as_str()),
-            Some(&package_path.join("target").join("python_tmp")),
-        )
-        .context("resolving host distribution")?;
+    pip_install_customize(
+        &env,
+        dist.clone_trait().as_ref(),
+        None,
+        true,
+        &["netaddr".to_owned()],
+        &HashMap::new(),
+    ).context("pip install netaddr")?;
+
+
+    let host_dist = StandaloneDistribution::from_directory(&dist.base_dir)
+        .context("load Python distribution")?;
 
     let policy = host_dist
         .create_packaging_policy()
@@ -137,15 +147,6 @@ pub fn generate_python_embedding_artifacts(
     interpreter_config.allocator_backend = MemoryAllocatorBackend::Default;
 
 
-    // pip_install_customize(
-    //     &env,
-    //     host_dist.clone_trait().as_ref(),
-    //     None,
-    //     true,
-    //     &["netaddr".to_owned()],
-    //     &HashMap::new(),
-    // ).context("pip install netaddr")?;
-
     let mut builder = host_dist.as_python_executable_builder(
         default_target_triple(),
         target_triple,
@@ -158,31 +159,19 @@ pub fn generate_python_embedding_artifacts(
 
     builder.set_tcl_files_path(Some("tcl".to_string()));
 
-    // try to use
-    // cannot be packaged into binary
-    builder.pip_install(
-        &env,
-        true,
-        &["netaddr".to_owned()],
-        &HashMap::new(),
-    ).context("pip install netaddr")?;
-
-
     builder
         .add_distribution_resources(/*None,*/ Some(Box::new(|_, b, _| {
-            println!(
-                "distribution resources {:?} | {}",
-                get_python_resource_type(b),
-                b.full_name()
-            );
+            // println!(
+            //     "distribution resources {:?} | {}",
+            //     get_python_resource_type(b),
+            //     b.full_name()
+            // );
             Ok(())
         })))
         .context("adding distribution resources")?;
 
-    builder
-        .iter_resources()
-        .for_each(|e| println!("iter_resources {},{}", e.0, e.1.name));
-    println!("number {:?}", builder.iter_resources().count());
+    println!("resources number {:?}", builder.iter_resources().count());
+
     let embedded_context = builder
         .to_embedded_python_context(env, "1")
         .context("resolving embedded context")?;
